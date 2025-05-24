@@ -1,11 +1,11 @@
-import streamlit as st
-import numpy as np
 import cv2
-from PIL import Image
+import numpy as np
+import matplotlib.pyplot as plt
 
 def region_of_interest(img):
     height = img.shape[0]
     width = img.shape[1]
+    # Define a trapezoid mask for lane area (adjust if needed)
     polygons = np.array([
         [(int(0.1*width), height),
          (int(0.45*width), int(0.6*height)),
@@ -35,20 +35,36 @@ def lane_detection_pipeline(image):
     combo = cv2.addWeighted(image, 0.8, line_img, 1, 1)
     return combo
 
-# Streamlit App
-st.set_page_config(page_title="Lane Detection", layout="centered")
-st.title("🚗 Lane Line Detection Web App")
-
-uploaded_file = st.file_uploader("Upload a road image", type=["jpg", "jpeg", "png"])
-
-if uploaded_file is not None:
-    file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
-    image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-
-    st.image(cv2.cvtColor(image, cv2.COLOR_BGR2RGB), caption="Original Image", use_column_width=True)
-
+def main():
+    # Change the filename here to your image
+    image_path = '/content/laneLines_thirdPass.jpg'
+    
+    # Read image
+    image = cv2.imread(image_path)
+    if image is None:
+        print("Error: Image not found or path is incorrect.")
+        return
+    
+    # Process image
     output = lane_detection_pipeline(image)
-    st.image(cv2.cvtColor(output, cv2.COLOR_BGR2RGB), caption="Lane Detection Output", use_column_width=True)
-else:
-    st.info("Please upload a road image to detect lanes.")
+    
+    # Convert to RGB for displaying with matplotlib
+    output_rgb = cv2.cvtColor(output, cv2.COLOR_BGR2RGB)
+    
+    # Show original and result
+    plt.figure(figsize=(12,6))
+    plt.subplot(1,2,1)
+    plt.title("Original Image")
+    plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    plt.axis('off')
+    
+    plt.subplot(1,2,2)
+    plt.title("Lane Detection Output")
+    plt.imshow(output_rgb)
+    plt.axis('off')
+    
+    plt.show()
+
+if __name__ == "__main__":
+    main()
 
