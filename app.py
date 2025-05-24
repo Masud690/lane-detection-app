@@ -1,51 +1,54 @@
 import streamlit as st
 import numpy as np
-import matplotlib.image as mpimg
+import cv2
+from PIL import Image
 
-st.title("🚗 Road Lane Line Detection")
+def region_of_interest(img):
+    height = img.shape[0]
+    width = img.shape[1]
+    polygons = np.array([
+        [(int(0.1*width), height),
+         (int(0.45*width), int(0.6*height)),
+         (int(0.55*width), int(0.6*height)),
+         (int(0.9*width), height)]
+    ])
+    mask = np.zeros_like(img)
+    cv2.fillPoly(mask, polygons, 255)
+    masked_image = cv2.bitwise_and(img, mask)
+    return masked_image
 
-uploaded_file = st.file_uploader("Upload a road image (jpg, png)", type=["jpg", "jpeg", "png"])
+def draw_lines(img, lines):
+    line_img = np.zeros_like(img)
+    if lines is not None:
+        for line in lines:
+            x1, y1, x2, y2 = line[0]
+            cv2.line(line_img, (x1, y1), (x2, y2), (255, 0, 0), 10)
+    return line_img
+
+def lane_detection_pipeline(image):
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+    edges = cv2.Canny(blur, 50, 150)
+    cropped = region_of_interest(edges)
+    lines = cv2.HoughLinesP(cropped, 2, np.pi/180, 50, np.array([]), minLineLength=40, maxLineGap=100)
+    line_img = draw_lines(image, lines)
+    combo = cv2.addWeighted(image, 0.8, line_img, 1, 1)
+    return combo
+
+# Streamlit App
+st.set_page_config(page_title="Lane Detection", layout="centered")
+st.title("🚗 Lane Line Detection Web App")
+
+uploaded_file = st.file_uploader("Upload a road image", type=["jpg", "jpeg", "png"])
 
 if uploaded_file is not None:
-    # Read image
-    image = mpimg.imread(uploaded_file)
+    file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
+    image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
-    # Copy for processing
-    ysize, xsize = image.shape[0], image.shape[1]
-    color_select = np.copy(image)
-    line_image = np.copy(image)
+    st.image(cv2.cvtColor(image, cv2.COLOR_BGR2RGB), caption="Original Image", use_column_width=True)
 
-    # Color threshold to select white/yellow lane lines
-    red_thresh = 200
-    green_thresh = 200
-    blue_thresh = 200
-
-    color_thresholds = (image[:, :, 0] < red_thresh) | \
-                       (image[:, :, 1] < green_thresh) | \
-                       (image[:, :, 2] < blue_thresh)
-
-    # Triangle region of interest
-    left_bottom = [xsize * 0.1, ysize]
-    right_bottom = [xsize * 0.9, ysize]
-    apex = [xsize * 0.5, ysize * 0.55]
-
-    fit_left = np.polyfit((left_bottom[0], apex[0]), (left_bottom[1], apex[1]), 1)
-    fit_right = np.polyfit((right_bottom[0], apex[0]), (right_bottom[1], apex[1]), 1)
-
-    XX, YY = np.meshgrid(np.arange(0, xsize), np.arange(0, ysize))
-    region_mask = (YY > (XX * fit_left[0] + fit_left[1])) & \
-                  (YY > (XX * fit_right[0] + fit_right[1]))
-
-    # Apply masks
-    color_select[color_thresholds | ~region_mask] = [0, 0, 0]
-    line_image[~color_thresholds & region_mask] = [0, 255, 0]  # Green for lanes
-
-    # Show results
-    st.image(image, caption="Original Image", use_column_width=True)
-    st.image(color_select, caption="After Color Thresholding", use_column_width=True)
-    st.image(line_image, caption="Detected Lane Lines", use_column_width=True)
-
+    output = lane_detection_pipeline(image)
+    st.image(cv2.cvtColor(output, cv2.COLOR_BGR2RGB), caption="Lane Detection Output", use_column_width=True)
 else:
-    st.info("Please upload a road image to detect lane lines.")
-
+    st.info("Please upload a road image to detect lanes.")
 
