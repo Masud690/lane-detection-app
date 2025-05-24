@@ -10,6 +10,10 @@ if uploaded_file is not None:
     # Read image as numpy array
     image = mpimg.imread(uploaded_file)
 
+    # Convert RGBA to RGB if image has alpha channel
+    if image.shape[2] == 4:
+        image = image[:, :, :3]
+
     ysize = image.shape[0]
     xsize = image.shape[1]
     color_select = np.copy(image)
@@ -32,15 +36,15 @@ if uploaded_file is not None:
     fit_bottom = np.polyfit((left_bottom[0], right_bottom[0]), (left_bottom[1], right_bottom[1]), 1)
 
     # Color threshold mask
-    color_thresholds = (image[:,:,0] < rgb_threshold[0]) | \
-                       (image[:,:,1] < rgb_threshold[1]) | \
-                       (image[:,:,2] < rgb_threshold[2])
+    color_thresholds = (image[:, :, 0] < rgb_threshold[0]) | \
+                       (image[:, :, 1] < rgb_threshold[1]) | \
+                       (image[:, :, 2] < rgb_threshold[2])
 
     # Region mask
     XX, YY = np.meshgrid(np.arange(0, xsize), np.arange(0, ysize))
-    region_thresholds = (YY > (XX*fit_left[0] + fit_left[1])) & \
-                        (YY > (XX*fit_right[0] + fit_right[1])) & \
-                        (YY < (XX*fit_bottom[0] + fit_bottom[1]))
+    region_thresholds = (YY > (XX * fit_left[0] + fit_left[1])) & \
+                        (YY > (XX * fit_right[0] + fit_right[1])) & \
+                        (YY < (XX * fit_bottom[0] + fit_bottom[1]))
 
     # Mask pixels outside thresholds
     color_select[color_thresholds | ~region_thresholds] = [0, 0, 0]
@@ -49,10 +53,9 @@ if uploaded_file is not None:
     line_image[~color_thresholds & region_thresholds] = [9, 255, 0]
 
     # Show images in Streamlit
-    st.image(image, caption="Original Image", use_column_width=True)
-    st.image(color_select, caption="Color Selection", use_column_width=True)
-    st.image(line_image, caption="Lane Lines Detected", use_column_width=True)
+    st.image(image, caption="Original Image", use_container_width=True)
+    st.image(color_select, caption="Color Selection", use_container_width=True)
+    st.image(line_image, caption="Lane Lines Detected", use_container_width=True)
 
 else:
     st.write("Please upload an image to start lane line detection.")
-
